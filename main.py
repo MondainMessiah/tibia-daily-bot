@@ -1,39 +1,38 @@
 import os
-import requests
-from bs4 import BeautifulSoup
+import asyncio
+from playwright.async_api import async_playwright
 from datetime import datetime
+import requests
 
-def send_to_discord(message):
-    webhook = os.getenv("DISCORD_WEBHOOK_URL")
-    if not webhook:
-        print("No webhook found.")
+async def scrape_boosted():
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        
+        # Scrape boosted creature
+        await page.goto("https://www.tibia.com/library/?subtopic=boostedcreature")
+        creature = await page.locator("img[alt]").first.get_attribute("alt")
+        
+        # Scrape boosted boss
+        await page.goto("https://www.tibia.com/library/?subtopic=boostablebosses")
+        boss = await page.locator("img[alt]").first.get_attribute("alt")
+        
+        await browser.close()
+        return creature, boss
+
+def send_to_discord(msg):
+    url = os.getenv("DISCORD_WEBHOOK_URL")
+    if not url:
+        print("Webhook URL missing")
         return
-    requests.post(webhook, json={"content": message})
+    requests.post(url, json={"content": msg})
 
-def scrape_boosted_creature():
-    url = "https://www.tibia.com/library/?subtopic=boostedcreature"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    r = requests.get(url, headers=headers)
-    soup = BeautifulSoup(r.text, "html.parser")
-    img = soup.find("img", {"alt": True})
-    if img and "Boosted Creature" not in img["alt"]:
-        return img["alt"]
-    return "No boosted creature found."
-
-def scrape_boosted_boss():
-    url = "https://www.tibia.com/library/?subtopic=boostablebosses"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    r = requests.get(url, headers=headers)
-    soup = BeautifulSoup(r.text, "html.parser")
-    img = soup.find("img", {"alt": True})
-    if img and "Boosted Boss" not in img["alt"]:
-        return img["alt"]
-    return "No boosted boss found."
+async def main():
+    creature, boss = await scrape_boosted()
+    date = datetime.now().strftime("%Y-%m-%d")
+    msg = f"📅 Tibia Boosts for {date}\n🦴 Boosted Creature: **{creature or 'Not found'}**\n👑 Boosted Boss: **{boss or 'Not found'}**"
+    print(msg)
+    send_to_discord(msg)
 
 if __name__ == "__main__":
-    creature = scrape_boosted_creature()
-    boss = scrape_boosted_boss()
-    date = datetime.now().strftime("%Y-%m-%d")
-    message = f"📅 Tibia Boosts for {date}\n🦴 Boosted Creature: **{creature}**\n👑 Boosted Boss: **{boss}**"
-    print(message)
-    send_to_discord(message)
+    asyncio.run(main())
