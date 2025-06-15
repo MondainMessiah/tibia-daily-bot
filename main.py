@@ -9,18 +9,18 @@ async def scrape_boosted():
         browser = await p.chromium.launch()
         page = await browser.new_page()
 
-        # ✅ Scrape boosted creature (from BoxContent text)
+        # 🔍 Boosted Creature
         await page.goto("https://www.tibia.com/library/?subtopic=boostedcreature")
-        await page.wait_for_selector("div.BoxContent")
-        creature_text = await page.locator("div.BoxContent").inner_text()
+        await page.wait_for_selector("div.BoxContent img")
+        creature = await page.locator("div.BoxContent img").first.get_attribute("alt")
 
-        # ✅ Scrape boosted boss (from BoxContent text)
+        # 🔍 Boosted Boss
         await page.goto("https://www.tibia.com/library/?subtopic=boostablebosses")
-        await page.wait_for_selector("div.BoxContent")
-        boss_text = await page.locator("div.BoxContent").inner_text()
+        await page.wait_for_selector("div.BoxContent img")
+        boss = await page.locator("div.BoxContent img").first.get_attribute("alt")
 
         await browser.close()
-        return creature_text.strip(), boss_text.strip()
+        return creature, boss
 
 def send_to_discord(msg):
     webhook = os.getenv("DISCORD_WEBHOOK_URL")
@@ -31,12 +31,12 @@ def send_to_discord(msg):
     print("✅ Sent to Discord:", response.status_code)
 
 async def main():
-    creature_text, boss_text = await scrape_boosted()
+    creature, boss = await scrape_boosted()
     date = datetime.now().strftime("%Y-%m-%d")
 
-    # Basic fallback detection
-    creature = "Not found" if "no creature" in creature_text.lower() else creature_text.splitlines()[0]
-    boss = "Not found" if "no boss" in boss_text.lower() else boss_text.splitlines()[0]
+    # Handle cases where content is not found or generic
+    creature = creature if creature and "boosted creature" not in creature.lower() else "Not found"
+    boss = boss if boss and "boosted boss" not in boss.lower() else "Not found"
 
     message = (
         f"📅 Tibia Boosts for {date}\n"
