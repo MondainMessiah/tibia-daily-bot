@@ -14,33 +14,20 @@ async def scrape_boosted():
         ))
         page = await context.new_page()
 
-        # Scrape boosted creature
+        # Boosted Creature
         await page.goto("https://www.tibia.com/library/?subtopic=boostedcreature")
         await page.wait_for_selector("div.BoxContent")
-        await page.wait_for_timeout(4000)  # wait a bit for content to load
+        await page.wait_for_timeout(4000)
+        creature_html = await page.locator("div.BoxContent").inner_html()
 
-        # Try to get image alt attribute first
-        creature_img = await page.locator("div.BoxContent img").first
-        creature_img_alt = await creature_img.get_attribute("alt") if creature_img else None
-
-        # Fallback: get the first line of the text inside BoxContent
-        creature_text = await page.locator("div.BoxContent").inner_text()
-        creature_name = creature_img_alt or (creature_text.splitlines()[0] if creature_text else None)
-
-        # Scrape boosted boss
+        # Boosted Boss
         await page.goto("https://www.tibia.com/library/?subtopic=boostablebosses")
         await page.wait_for_selector("div.BoxContent")
         await page.wait_for_timeout(4000)
-
-        boss_img = await page.locator("div.BoxContent img").first
-        boss_img_alt = await boss_img.get_attribute("alt") if boss_img else None
-
-        boss_text = await page.locator("div.BoxContent").inner_text()
-        boss_name = boss_img_alt or (boss_text.splitlines()[0] if boss_text else None)
+        boss_html = await page.locator("div.BoxContent").inner_html()
 
         await browser.close()
-
-        return creature_name.strip() if creature_name else None, boss_name.strip() if boss_name else None
+        return creature_html, boss_html
 
 def send_to_discord(msg):
     webhook = os.getenv("DISCORD_WEBHOOK_URL")
@@ -51,18 +38,13 @@ def send_to_discord(msg):
     print(f"Discord response status: {response.status_code}")
 
 async def main():
-    creature, boss = await scrape_boosted()
+    creature_html, boss_html = await scrape_boosted()
     date = datetime.now().strftime("%Y-%m-%d")
 
-    if not creature or "no boosted" in creature.lower():
-        creature = "No boosted creature found."
-    if not boss or "no boosted" in boss.lower():
-        boss = "No boosted boss found."
-
     message = (
-        f"📅 Tibia Boosts for {date}\n"
-        f"🦴 Boosted Creature: **{creature}**\n"
-        f"👑 Boosted Boss: **{boss}**"
+        f"📅 Tibia Boosts for {date}\n\n"
+        f"🦴 Boosted Creature HTML:\n```\n{creature_html[:1500]}\n```\n\n"
+        f"👑 Boosted Boss HTML:\n```\n{boss_html[:1500]}\n```"
     )
 
     print(message)
