@@ -3,30 +3,36 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 
-def send_to_discord(msg):
-    webhook = os.getenv("DISCORD_WEBHOOK_URL")
-    if not webhook:
-        print("Webhook URL missing")
+def send_to_discord(message):
+    url = os.getenv("DISCORD_WEBHOOK_URL")
+    if not url:
+        print("Missing webhook URL")
         return
-    requests.post(webhook, json={"content": msg})
+    requests.post(url, json={"content": message})
 
-def scrape_boosts():
-    url = "https://www.tibia-statistic.com/"
+def get_boosted_data():
+    url = "https://tibia.fandom.com/wiki/Main_Page"
     headers = {"User-Agent": "Mozilla/5.0"}
-    r = requests.get(url, headers=headers)
-    soup = BeautifulSoup(r.text, "html.parser")
+    resp = requests.get(url, headers=headers)
+    soup = BeautifulSoup(resp.text, "html.parser")
 
-    imgs = soup.find_all("img")
-    if len(imgs) < 2:
-        return "❌ No boosted creature found", "❌ No boosted boss found"
+    try:
+        creature_section = soup.find("a", title="Boosted Creature").find_next("a")
+        creature = creature_section["title"]
+    except:
+        creature = "❌ Creature not found"
 
-    creature = imgs[0].get("alt", "").strip()
-    boss = imgs[1].get("alt", "").strip()
-    return f"🦴 Boosted Creature: **{creature}**", f"👑 Boosted Boss: **{boss}**"
+    try:
+        boss_section = soup.find("a", title="Boosted Boss").find_next("a")
+        boss = boss_section["title"]
+    except:
+        boss = "❌ Boss not found"
+
+    return creature, boss
 
 if __name__ == "__main__":
-    creature, boss = scrape_boosts()
+    creature, boss = get_boosted_data()
     date = datetime.now().strftime("%Y-%m-%d")
-    msg = f"📅 Tibia Boosts for {date}\n{creature}\n{boss}"
-    print(msg)
-    send_to_discord(msg)
+    message = f"📅 Tibia Boosts for {date}\n🦴 Boosted Creature: **{creature}**\n👑 Boosted Boss: **{boss}**"
+    print(message)
+    send_to_discord(message)
