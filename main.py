@@ -12,17 +12,31 @@ def send_to_discord(message: str):
 
 def scrape_boosted_creature():
     url = "https://www.tibia.com/news/?subtopic=creatureboost"
-    response = requests.get(url)
+    headers = {"User-Agent": "Mozilla/5.0"}
+    response = requests.get(url, headers=headers)
     soup = BeautifulSoup(response.text, "html.parser")
-    img = soup.find("img", alt=True)
-    return f"🦴 Boosted Creature: **{img['alt']}**" if img else "No boosted creature found."
+
+    try:
+        text = soup.find("div", class_="NewsHeadline").find_next("td", {"width": "100%"}).text.strip()
+        # Example: "Today's boosted creature: Grim Reaper"
+        name = text.split(":")[-1].strip()
+        return f"🦴 Boosted Creature: **{name}**"
+    except:
+        return "❌ Could not find boosted creature."
 
 def scrape_boosted_boss():
     url = "https://www.tibia.com/news/?subtopic=bosstiaryboost"
-    response = requests.get(url)
+    headers = {"User-Agent": "Mozilla/5.0"}
+    response = requests.get(url, headers=headers)
     soup = BeautifulSoup(response.text, "html.parser")
-    img = soup.find("img", alt=True)
-    return f"👑 Boosted Boss: **{img['alt']}**" if img else "No boosted boss found."
+
+    try:
+        text = soup.find("div", class_="NewsHeadline").find_next("td", {"width": "100%"}).text.strip()
+        # Example: "Today's boosted boss: The Count of the Core"
+        name = text.split(":")[-1].strip()
+        return f"👑 Boosted Boss: **{name}**"
+    except:
+        return "❌ Could not find boosted boss."
 
 if __name__ == "__main__":
     today = datetime.now().strftime("%Y-%m-%d")
