@@ -9,18 +9,18 @@ async def scrape_boosted():
         browser = await p.chromium.launch()
         page = await browser.new_page()
 
-        # Scrape boosted creature
+        # ✅ Scrape boosted creature
         await page.goto("https://www.tibia.com/library/?subtopic=boostedcreature")
         await page.wait_for_load_state("networkidle")
-        creature_img = await page.locator("img[alt]").first.get_attribute("alt")
+        creature = await page.locator("div.BoxContent img").first.get_attribute("alt")
 
-        # Scrape boosted boss
+        # ✅ Scrape boosted boss
         await page.goto("https://www.tibia.com/library/?subtopic=boostablebosses")
         await page.wait_for_load_state("networkidle")
-        boss_img = await page.locator("img[alt]").first.get_attribute("alt")
+        boss = await page.locator("div.BoxContent img").first.get_attribute("alt")
 
         await browser.close()
-        return creature_img, boss_img
+        return creature, boss
 
 def send_to_discord(msg):
     webhook = os.getenv("DISCORD_WEBHOOK_URL")
@@ -34,9 +34,11 @@ async def main():
     creature, boss = await scrape_boosted()
     date = datetime.now().strftime("%Y-%m-%d")
 
+    # Clean fallback if data is missing
     creature = creature if creature and "Boosted" not in creature else "Not found"
     boss = boss if boss and "Boosted" not in boss else "Not found"
 
+    # Compose message
     message = (
         f"📅 Tibia Boosts for {date}\n"
         f"🦴 Boosted Creature: **{creature}**\n"
