@@ -7,44 +7,64 @@ import requests
 async def scrape_boosted():
     async with async_playwright() as p:
         browser = await p.chromium.launch()
-        page = await browser.new_page()
+        context = await browser.new_context(user_agent=(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/115.0.0.0 Safari/537.36"
+        ))
+        page = await context.new_page()
 
-        # Boosted Creature page
+        # Scrape boosted creature
         await page.goto("https://www.tibia.com/library/?subtopic=boostedcreature")
         await page.wait_for_selector("div.BoxContent")
-        creature_imgs = await page.locator("div.BoxContent img").all()
-        creature_img_alts = [await img.get_attribute("alt") for img in creature_imgs]
-        creature_text = await page.locator("div.BoxContent").inner_text()
+        await page.wait_for_timeout(4000)  # wait a bit for content to load
 
-        # Boosted Boss page
+        # Try to get image alt attribute first
+        creature_img = await page.locator("div.BoxContent img").first
+        creature_img_alt = await creature_img.get_attribute("alt") if creature_img else None
+
+        # Fallback: get the first line of the text inside BoxContent
+        creature_text = await page.locator("div.BoxContent").inner_text()
+        creature_name = creature_img_alt or (creature_text.splitlines()[0] if creature_text else None)
+
+        # Scrape boosted boss
         await page.goto("https://www.tibia.com/library/?subtopic=boostablebosses")
         await page.wait_for_selector("div.BoxContent")
-        boss_imgs = await page.locator("div.BoxContent img").all()
-        boss_img_alts = [await img.get_attribute("alt") for img in boss_imgs]
+        await page.wait_for_timeout(4000)
+
+        boss_img = await page.locator("div.BoxContent img").first
+        boss_img_alt = await boss_img.get_attribute("alt") if boss_img else None
+
         boss_text = await page.locator("div.BoxContent").inner_text()
+        boss_name = boss_img_alt or (boss_text.splitlines()[0] if boss_text else None)
 
         await browser.close()
-        return (creature_img_alts, creature_text), (boss_img_alts, boss_text)
+
+        return creature_name.strip() if creature_name else None, boss_name.strip() if boss_name else None
 
 def send_to_discord(msg):
     webhook = os.getenv("DISCORD_WEBHOOK_URL")
     if not webhook:
-        print("❌ DISCORD_WEBHOOK_URL environment variable is missing.")
+        print("❌ DISCORD_WEBHOOK_URL environment variable not set.")
         return
     response = requests.post(webhook, json={"content": msg})
-    print("✅ Sent to Discord:", response.status_code)
+    print(f"Discord response status: {response.status_code}")
 
 async def main():
-    (creature_img_alts, creature_text), (boss_img_alts, boss_text) = await scrape_boosted()
+    creature, boss = await scrape_boosted()
     date = datetime.now().strftime("%Y-%m-%d")
 
+    if not creature or "no boosted" in creature.lower():
+        creature = "No boosted creature found."
+    if not boss or "no boosted" in boss.lower():
+        boss = "No boosted boss found."
+
     message = (
-        f"📅 Tibia Boosts for {date}\n\n"
-        f"🦴 Creature image alt texts:\n{creature_img_alts}\n\n"
-        f"🦴 Creature raw text:\n{creature_text}\n\n"
-        f"👑 Boss image alt texts:\n{boss_img_alts}\n\n"
-        f"👑 Boss raw text:\n{boss_text}"
+        f"📅 Tibia Boosts for {date}\n"
+        f"🦴 Boosted Creature: **{creature}**\n"
+        f"👑 Boosted Boss: **{boss}**"
     )
+
     print(message)
     send_to_discord(message)
 
