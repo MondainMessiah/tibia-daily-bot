@@ -9,18 +9,18 @@ async def scrape_boosted():
         browser = await p.chromium.launch()
         page = await browser.new_page()
 
-        # ✅ Scrape boosted creature
+        # ✅ Scrape boosted creature (from BoxContent text)
         await page.goto("https://www.tibia.com/library/?subtopic=boostedcreature")
-        await page.wait_for_load_state("networkidle")
-        creature = await page.locator("div.BoxContent img").first.get_attribute("alt")
+        await page.wait_for_selector("div.BoxContent")
+        creature_text = await page.locator("div.BoxContent").inner_text()
 
-        # ✅ Scrape boosted boss
+        # ✅ Scrape boosted boss (from BoxContent text)
         await page.goto("https://www.tibia.com/library/?subtopic=boostablebosses")
-        await page.wait_for_load_state("networkidle")
-        boss = await page.locator("div.BoxContent img").first.get_attribute("alt")
+        await page.wait_for_selector("div.BoxContent")
+        boss_text = await page.locator("div.BoxContent").inner_text()
 
         await browser.close()
-        return creature, boss
+        return creature_text.strip(), boss_text.strip()
 
 def send_to_discord(msg):
     webhook = os.getenv("DISCORD_WEBHOOK_URL")
@@ -31,14 +31,13 @@ def send_to_discord(msg):
     print("✅ Sent to Discord:", response.status_code)
 
 async def main():
-    creature, boss = await scrape_boosted()
+    creature_text, boss_text = await scrape_boosted()
     date = datetime.now().strftime("%Y-%m-%d")
 
-    # Clean fallback if data is missing
-    creature = creature if creature and "Boosted" not in creature else "Not found"
-    boss = boss if boss and "Boosted" not in boss else "Not found"
+    # Basic fallback detection
+    creature = "Not found" if "no creature" in creature_text.lower() else creature_text.splitlines()[0]
+    boss = "Not found" if "no boss" in boss_text.lower() else boss_text.splitlines()[0]
 
-    # Compose message
     message = (
         f"📅 Tibia Boosts for {date}\n"
         f"🦴 Boosted Creature: **{creature}**\n"
