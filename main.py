@@ -1,45 +1,30 @@
-import os
-import requests
+import os, requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 
-def send_to_discord(message: str):
-    webhook_url = os.environ.get("DISCORD_WEBHOOK_URL")
-    if not webhook_url:
-        print("No Discord webhook URL found.")
+def send_to_discord(msg):
+    url = os.getenv("DISCORD_WEBHOOK_URL")
+    if not url:
+        print("Webhook not set")
         return
-    requests.post(webhook_url, json={"content": message})
+    requests.post(url, json={"content": msg})
 
-def scrape_boosted_creature():
-    url = "https://www.tibia.com/news/?subtopic=creatureboost"
+def scrape_from_statistic():
+    url = "https://www.tibia-statistic.com/"
     headers = {"User-Agent": "Mozilla/5.0"}
-    response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.text, "html.parser")
+    resp = requests.get(url, headers=headers)
+    soup = BeautifulSoup(resp.text, "html.parser")
+    imgs = soup.find_all("img")
+    if len(imgs) >= 2:
+        return (
+            f"🦴 Boosted Creature: **{imgs[0].get('alt','').strip()}**",
+            f"👑 Boosted Boss: **{imgs[1].get('alt','').strip()}**"
+        )
+    return "❌ Couldn't find boosted creature", "❌ Couldn't find boosted boss"
 
-    try:
-        text = soup.find("div", class_="NewsHeadline").find_next("td", {"width": "100%"}).text.strip()
-        # Example: "Today's boosted creature: Grim Reaper"
-        name = text.split(":")[-1].strip()
-        return f"🦴 Boosted Creature: **{name}**"
-    except:
-        return "❌ Could not find boosted creature."
-
-def scrape_boosted_boss():
-    url = "https://www.tibia.com/news/?subtopic=bosstiaryboost"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.text, "html.parser")
-
-    try:
-        text = soup.find("div", class_="NewsHeadline").find_next("td", {"width": "100%"}).text.strip()
-        # Example: "Today's boosted boss: The Count of the Core"
-        name = text.split(":")[-1].strip()
-        return f"👑 Boosted Boss: **{name}**"
-    except:
-        return "❌ Could not find boosted boss."
-
-if __name__ == "__main__":
-    today = datetime.now().strftime("%Y-%m-%d")
-    message = f"📅 Tibia Boosts for {today}\n{scrape_boosted_creature()}\n{scrape_boosted_boss()}"
-    print(message)
-    send_to_discord(message)
+if __name__ == '__main__':
+    creature, boss = scrape_from_statistic()
+    date = datetime.now().strftime("%Y-%m-%d")
+    msg = f"📅 Tibia Boosts for {date}\n{creature}\n{boss}"
+    print(msg)
+    send_to_discord(msg)
