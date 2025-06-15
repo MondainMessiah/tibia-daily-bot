@@ -9,18 +9,22 @@ async def scrape_boosted():
         browser = await p.chromium.launch()
         page = await browser.new_page()
 
-        # 🔍 Boosted Creature
+        # Boosted Creature
         await page.goto("https://www.tibia.com/library/?subtopic=boostedcreature")
-        await page.wait_for_selector("div.BoxContent img")
-        creature = await page.locator("div.BoxContent img").first.get_attribute("alt")
+        await page.wait_for_selector("div.BoxContent")
+        creature_img_alt = await page.locator("div.BoxContent img").first.get_attribute("alt")
+        creature_text = await page.locator("div.BoxContent").inner_text()
+        creature = creature_img_alt or creature_text.splitlines()[0]
 
-        # 🔍 Boosted Boss
+        # Boosted Boss
         await page.goto("https://www.tibia.com/library/?subtopic=boostablebosses")
-        await page.wait_for_selector("div.BoxContent img")
-        boss = await page.locator("div.BoxContent img").first.get_attribute("alt")
+        await page.wait_for_selector("div.BoxContent")
+        boss_img_alt = await page.locator("div.BoxContent img").first.get_attribute("alt")
+        boss_text = await page.locator("div.BoxContent").inner_text()
+        boss = boss_img_alt or boss_text.splitlines()[0]
 
         await browser.close()
-        return creature, boss
+        return creature.strip(), boss.strip()
 
 def send_to_discord(msg):
     webhook = os.getenv("DISCORD_WEBHOOK_URL")
@@ -34,9 +38,11 @@ async def main():
     creature, boss = await scrape_boosted()
     date = datetime.now().strftime("%Y-%m-%d")
 
-    # Handle cases where content is not found or generic
-    creature = creature if creature and "boosted creature" not in creature.lower() else "Not found"
-    boss = boss if boss and "boosted boss" not in boss.lower() else "Not found"
+    # Fallback if the text contains no boosted info
+    if not creature or "boosted" in creature.lower():
+        creature = "No boosted creature found."
+    if not boss or "boosted" in boss.lower():
+        boss = "No boosted boss found."
 
     message = (
         f"📅 Tibia Boosts for {date}\n"
