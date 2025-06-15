@@ -1,36 +1,39 @@
-import os, requests
+import os
+import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 
-def send_to_discord(msg):
+def send_to_discord(message):
     webhook = os.getenv("DISCORD_WEBHOOK_URL")
     if not webhook:
-        print("Missing webhook URL")
+        print("No webhook found.")
         return
-    requests.post(webhook, json={"content": msg})
+    requests.post(webhook, json={"content": message})
 
 def scrape_boosted_creature():
     url = "https://www.tibia.com/library/?subtopic=boostedcreature"
-    resp = requests.get(url, headers={"User-Agent":"Mozilla/5.0"})
-    soup = BeautifulSoup(resp.text, "html.parser")
-    el = soup.find("td", string=lambda t: "Today's Boosted Creature" in t)
-    if el:
-        return el.find_next_sibling("td").get_text(strip=True)
-    return "❌ Creature not found"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    r = requests.get(url, headers=headers)
+    soup = BeautifulSoup(r.text, "html.parser")
+    img = soup.find("img", {"alt": True})
+    if img and "Boosted Creature" not in img["alt"]:
+        return img["alt"]
+    return "No boosted creature found."
 
 def scrape_boosted_boss():
     url = "https://www.tibia.com/library/?subtopic=boostablebosses"
-    resp = requests.get(url, headers={"User-Agent":"Mozilla/5.0"})
-    soup = BeautifulSoup(resp.text, "html.parser")
-    el = soup.find("td", string=lambda t: "Today's boosted boss" in t)
-    if el:
-        return el.find_next_sibling("td").get_text(strip=True)
-    return "❌ Boss not found"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    r = requests.get(url, headers=headers)
+    soup = BeautifulSoup(r.text, "html.parser")
+    img = soup.find("img", {"alt": True})
+    if img and "Boosted Boss" not in img["alt"]:
+        return img["alt"]
+    return "No boosted boss found."
 
 if __name__ == "__main__":
     creature = scrape_boosted_creature()
     boss = scrape_boosted_boss()
     date = datetime.now().strftime("%Y-%m-%d")
-    msg = f"📅 Tibia Boosts for {date}\n🦴 Boosted Creature: **{creature}**\n👑 Boosted Boss: **{boss}**"
-    print(msg)
-    send_to_discord(msg)
+    message = f"📅 Tibia Boosts for {date}\n🦴 Boosted Creature: **{creature}**\n👑 Boosted Boss: **{boss}**"
+    print(message)
+    send_to_discord(message)
