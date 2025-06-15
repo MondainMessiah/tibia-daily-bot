@@ -9,22 +9,22 @@ async def scrape_boosted():
         browser = await p.chromium.launch()
         page = await browser.new_page()
 
-        # Boosted Creature
+        # Boosted Creature page
         await page.goto("https://www.tibia.com/library/?subtopic=boostedcreature")
         await page.wait_for_selector("div.BoxContent")
-        creature_img_alt = await page.locator("div.BoxContent img").first.get_attribute("alt")
+        creature_imgs = await page.locator("div.BoxContent img").all()
+        creature_img_alts = [await img.get_attribute("alt") for img in creature_imgs]
         creature_text = await page.locator("div.BoxContent").inner_text()
-        creature = creature_img_alt or creature_text.splitlines()[0]
 
-        # Boosted Boss
+        # Boosted Boss page
         await page.goto("https://www.tibia.com/library/?subtopic=boostablebosses")
         await page.wait_for_selector("div.BoxContent")
-        boss_img_alt = await page.locator("div.BoxContent img").first.get_attribute("alt")
+        boss_imgs = await page.locator("div.BoxContent img").all()
+        boss_img_alts = [await img.get_attribute("alt") for img in boss_imgs]
         boss_text = await page.locator("div.BoxContent").inner_text()
-        boss = boss_img_alt or boss_text.splitlines()[0]
 
         await browser.close()
-        return creature.strip(), boss.strip()
+        return (creature_img_alts, creature_text), (boss_img_alts, boss_text)
 
 def send_to_discord(msg):
     webhook = os.getenv("DISCORD_WEBHOOK_URL")
@@ -35,24 +35,17 @@ def send_to_discord(msg):
     print("✅ Sent to Discord:", response.status_code)
 
 async def main():
-    creature, boss = await scrape_boosted()
+    (creature_img_alts, creature_text), (boss_img_alts, boss_text) = await scrape_boosted()
     date = datetime.now().strftime("%Y-%m-%d")
 
-    # Fallback if the text contains no boosted info
-    if not creature or "boosted" in creature.lower():
-        creature = "No boosted creature found."
-    if not boss or "boosted" in boss.lower():
-        boss = "No boosted boss found."
-
     message = (
-        f"📅 Tibia Boosts for {date}\n"
-        f"🦴 Boosted Creature: **{creature}**\n"
-        f"👑 Boosted Boss: **{boss}**"
+        f"📅 Tibia Boosts for {date}\n\n"
+        f"🦴 Creature image alt texts:\n{creature_img_alts}\n\n"
+        f"🦴 Creature raw text:\n{creature_text}\n\n"
+        f"👑 Boss image alt texts:\n{boss_img_alts}\n\n"
+        f"👑 Boss raw text:\n{boss_text}"
     )
-
-    print("DEBUG creature:", creature)
-    print("DEBUG boss:", boss)
-    print("Sending to Discord...\n", message)
+    print(message)
     send_to_discord(message)
 
 if __name__ == "__main__":
